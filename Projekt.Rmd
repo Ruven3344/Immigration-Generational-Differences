@@ -1,0 +1,123 @@
+---
+title: "Immigration Project"
+output: html_document
+date: "2025-10-06"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+## Data
+
+```{r}
+# Load ESS data
+dat <- read_csv("ESS7e02_3.csv")
+
+# Select and recode relevant variables
+dat2 <- dat %>%
+  select(cntbrthc, fbrncntb, mbrncntb, cntry, brncntr,
+         trstlgl, trstplc, trstplt, trstprl, trstprt,
+         dscrgrp, hinctnta, gndr, eduyrs, agea, yrbrn) %>%
+  mutate(
+    migrant_gen = case_when(
+      brncntr == 2 ~ "First generation", 
+      brncntr == 1 & (fbrncntb != cntbrthc | mbrncntb != cntbrthc) ~ "Second generation",
+      brncntr == 1 & fbrncntb == cntbrthc & mbrncntb == cntbrthc ~ "No migration background",
+      TRUE ~ NA_character_
+    ),
+    migrant_gen = factor(migrant_gen,
+                         levels = c("No migration background",
+                                    "Second generation",
+                                    "First generation")),
+    # Institutional trust index (mean of trust items)
+    trust_index = rowMeans(select(., trstlgl, trstplc, trstplt, trstprl, trstprt),
+                           na.rm = TRUE),
+    # Binary discrimination variable
+    discrim = if_else(dscrgrp == 1, 1, 0),
+    gender = if_else(gndr == 1, "Male", "Female")
+  )
+
+```
+
+## Descriptive Statistic
+
+```{r}
+dat2 %>%
+  group_by(migrant_gen) %>%
+  summarise(mean_trust = mean(trust_index, na.rm = TRUE),
+            n = n())
+```
+
+## H1
+```{r}
+h1_model <- lm(trust_index ~ migrant_gen + agea + eduyrs + hinctnta + gender,
+               data = dat2)
+summary(h1_model)
+
+```
+
+## H2
+```{r}
+dat2 <- dat2 %>%
+  mutate(region_origin = case_when(
+    cntbrthc %in% c("TUR", "SYR", "IRQ") ~ "Non-EU (weak institutions)",
+    cntbrthc %in% c("ITA", "ESP", "POL") ~ "EU (mixed institutions)",
+    TRUE ~ "Other"
+  ))
+
+h2_model <- lm(trust_index ~ migrant_gen * region_origin + agea + eduyrs + hinctnta,
+               data = dat2)
+summary(h2_model)
+
+```
+
+## H3
+```{r}
+h3_model <- lm(trust_index ~ migrant_gen * discrim + agea + eduyrs + hinctnta,
+               data = dat2)
+summary(h3_model)
+
+```
+
+## Visualization
+## Trust by Migration Generation
+```{r}
+ggplot(dat2, aes(x = migrant_gen, y = trust_index, fill = migrant_gen)) +
+  geom_boxplot() +
+  labs(title = "Institutional Trust by Migration Generation",
+       x = "Migration Generation",
+       y = "Trust Index (0–10)") +
+  theme_minimal()
+
+```
+
+## Trust Gap by Region of Origin
+```{r}
+dat2 %>%
+  group_by(migrant_gen, region_origin) %>%
+  summarise(mean_trust = mean(trust_index, na.rm = TRUE)) %>%
+  ggplot(aes(x = migrant_gen, y = mean_trust, fill = region_origin)) +
+  geom_col(position = "dodge") +
+  labs(title = "Trust in Institutions by Migration Generation and Region of Origin",
+       x = "Migration Generation", y = "Mean Trust Index") +
+  theme_minimal()
+
+```
+
+## Discrimination and Trust
+
+```{r}
+dat2 %>%
+  group_by(migrant_gen, discrim) %>%
+  summarise(mean_trust = mean(trust_index, na.rm = TRUE)) %>%
+  ggplot(aes(x = factor(discrim, labels = c("No Discrimination", "Discriminated")),
+             y = mean_trust, fill = migrant_gen)) +
+  geom_col(position = "dodge") +
+  labs(title = "Trust in Institutions by Migration Generation and Discrimination",
+       x = "Discrimination Experience", y = "Mean Trust Index") +
+  theme_minimal()
+
+```
+
