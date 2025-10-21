@@ -4,9 +4,11 @@ output: html_document
 date: "2025-10-06"
 ---
 
-```{r setup, include=FALSE}
+
+```{r}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(readr)   
 ```
 
 ## Data
@@ -31,13 +33,83 @@ dat2 <- dat %>%
                          levels = c("No migration background",
                                     "Second generation",
                                     "First generation")),
-    # Institutional trust index (mean of trust items)
-    trust_index = rowMeans(select(., trstlgl, trstplc, trstplt, trstprl, trstprt),
-                           na.rm = TRUE),
     # Binary discrimination variable
     discrim = if_else(dscrgrp == 1, 1, 0),
     gender = if_else(gndr == 1, "Male", "Female")
   )
+```
+   
+```{r}
+# Recoding variables, getting rid of missing values and looking at outliers
+# fyi cntry has no missings hence it was not recoded
+
+# Recode variables with 66 missing value, 77 refusal, 88 don't know, 99 no answer
+dat2$cntbrthc[dat2$cntbrthc %in% c(66, 77, 88, 99)] <- NA 
+dat2$fbrncntb[dat2$fbrncntb %in% c(66, 77, 88, 99)] <- NA # gibt noch 65	Alien's passport
+dat2$mbrncntb[dat2$mbrncntb %in% c(66, 77, 88, 99)] <- NA # ebd.
+
+# Recode variables: 77 refusal, 88 don't know, 99 no answer
+dat2$trstlgl[dat2$trstlgl %in% c(77, 88, 99)] <- NA
+dat2$trstplc[dat2$trstplc %in% c(77, 88, 99)] <- NA
+dat2$trstplt[dat2$trstplt %in% c(77, 88, 99)] <- NA
+dat2$trstprl[dat2$trstprl %in% c(77, 88, 99)] <- NA
+dat2$trstprt[dat2$trstprt %in% c(77, 88, 99)] <- NA
+dat2$hinctnta[dat2$hinctnta %in% c(77, 88, 99)] <- NA
+dat2$eduyrs[dat2$eduyrs %in% c(77, 88, 99)] <-  NA
+dat2$yrbrn[dat$yrbrn %in% c(7777, 8888, 9999)] <- NA
+
+# Recode variables: 7 refusal, 8 don't know, 9 no answer
+dat2$brncntr[dat2$yrbrn %in% c(7, 8, 9)] <- NA
+dat2$dscrgrp[dat2$dscrgrp %in% c(7, 8, 9)] <- NA
+dat2$gndr[dat2$gndr %in% c(9)] <- NA
+dat2$agea[dat2$agea %in% c(999)] <- NA
+
+# Outlier for variable eduyrs, yrbrn and agea
+table(dat2$eduyrs)
+median(dat2$eduyrs, na.rm = TRUE) # 12
+mean(dat2$eduyrs, na.rm = TRUE) # 12.9 <- Es gibt hier 29 Fälle mit Angabe > 30 Jahre, 2 mal 50 Jahre. Letztere Rausnehmen?
+mean(dat2$yrbrn, na.rm = TRUE) # 1965
+table(dat2$yrbrn, useNA = 'always') # <- Gibt 24 Fälle vor 1920 irgendwie sus, wie wollen wir damit umgehen?
+table(dat2$agea)
+median(dat2$agea, na.rm = TRUE) # 49
+mean(dat2$agea, na.rm = TRUE) # 49.28 
+
+# Check if recoding the variables worked
+table(dat2$fbrncntb, useNA = 'always')
+table(dat2$mbrncntb, useNA = 'always')
+table(dat2$trstlgl, useNA = 'always')
+table(dat2$trstplc, useNA = 'always')
+table(dat2$trstplt, useNA = 'always')
+table(dat2$trstprl, useNA = 'always')
+table(dat2$trstprt, useNA = 'always')
+table(dat2$hinctnta, useNA = 'always')
+table(dat2$eduyrs, useNA = 'always')
+table(dat2$yrbrn, useNA = 'always')
+table(dat2$dscrgrp, useNA = 'always')
+table(dat2$gndr, useNA = 'always')
+table(dat2$agea, useNA = 'always')
+```
+ 
+```{r}   
+# Creating two trust indexes :: political institutional trust and non-political institutional trust
+
+# political institutional trust index (mean of trust items)
+dat2 <- dat2 %>%
+  mutate(political_trust_index = round(rowMeans(select(., "trstplt", "trstprl", "trstprt"), na.rm = TRUE)))
+dat2$political_trust_index[dat2$political_trust_index == "NaN"] <- NA
+table(dat2$political_trust_index, useNA = 'always')
+
+# evtl. noch spannend aus welchen Ländern?
+
+# non political institutional trust index (mean of trust items)
+dat2 <- dat2 %>%
+  mutate(non_political_trust_index = round(rowMeans(select(., "trstlgl", "trstplc"), na.rm = TRUE)))
+dat2$non_political_trust_index[dat2$non_political_trust_index == "NaN"] <- NA
+table(dat2$non_political_trust_index, useNA = 'always')
+
+# distribution check
+summary(dat2$political_trust_index) # median 4, mean 3.875, neutral, wenn überhaupt dann leicht rechtssteil/ linksschief
+summary(dat2$non_political_trust_index) # median 6, mean 5.796, ebd.
 
 ```
 
@@ -46,16 +118,24 @@ dat2 <- dat %>%
 ```{r}
 dat2 %>%
   group_by(migrant_gen) %>%
-  summarise(mean_trust = mean(trust_index, na.rm = TRUE),
-            n = n())
+  summarise(
+    mean_political_trust = mean(political_trust_index, na.rm = TRUE),
+    mean_nonpolitical_trust = mean(non_political_trust_index, na.rm = TRUE),
+    n = n()
+  )
 ```
 
 ## H1
 ```{r}
-h1_model <- lm(trust_index ~ migrant_gen + agea + eduyrs + hinctnta + gender,
-               data = dat2)
-summary(h1_model)
+# Political trust
+h1_political <- lm(political_trust_index ~ migrant_gen + agea + eduyrs + hinctnta + gender,
+                   data = dat2)
+summary(h1_political)
 
+# Non-political trust
+h1_nonpolitical <- lm(non_political_trust_index ~ migrant_gen + agea + eduyrs + hinctnta + gender,
+                      data = dat2)
+summary(h1_nonpolitical)
 ```
 
 ## H2
@@ -67,39 +147,60 @@ dat2 <- dat2 %>%
     TRUE ~ "Other"
   ))
 
-h2_model <- lm(trust_index ~ migrant_gen * region_origin + agea + eduyrs + hinctnta,
-               data = dat2)
-summary(h2_model)
+# Political trust
+h2_political <- lm(political_trust_index ~ migrant_gen * region_origin + agea + eduyrs + hinctnta,
+                   data = dat2)
+summary(h2_political)
+
+# Non-political trust
+h2_nonpolitical <- lm(non_political_trust_index ~ migrant_gen * region_origin + agea + eduyrs + hinctnta,
+                      data = dat2)
+summary(h2_nonpolitical)
 
 ```
 
 ## H3
 ```{r}
-h3_model <- lm(trust_index ~ migrant_gen * discrim + agea + eduyrs + hinctnta,
-               data = dat2)
-summary(h3_model)
+
+# Political trust
+h3_political <- lm(political_trust_index ~ migrant_gen * discrim + agea + eduyrs + hinctnta,
+                   data = dat2)
+summary(h3_political)
+
+# Non-political trust
+h3_nonpolitical <- lm(non_political_trust_index ~ migrant_gen * discrim + agea + eduyrs + hinctnta,
+                      data = dat2)
+summary(h3_nonpolitical)
 
 ```
 
 ## Visualization
 ## Trust by Migration Generation
 ```{r}
-ggplot(dat2, aes(x = migrant_gen, y = trust_index, fill = migrant_gen)) +
+dat2_long <- dat2 %>%
+  pivot_longer(cols = c(political_trust_index, non_political_trust_index),
+               names_to = "trust_type",
+               values_to = "trust_value") %>%
+  mutate(trust_type = recode(trust_type,
+                             political_trust_index = "Political Trust",
+                             non_political_trust_index = "Non-Political Trust"))
+
+ggplot(dat2_long, aes(x = migrant_gen, y = trust_value, fill = trust_type)) +
   geom_boxplot() +
-  labs(title = "Institutional Trust by Migration Generation",
-       x = "Migration Generation",
-       y = "Trust Index (0–10)") +
+  labs(title = "Trust in Institutions by Migration Generation",
+       x = "Migration Generation", y = "Trust Index (0–10)") +
   theme_minimal()
 
 ```
 
 ## Trust Gap by Region of Origin
 ```{r}
-dat2 %>%
-  group_by(migrant_gen, region_origin) %>%
-  summarise(mean_trust = mean(trust_index, na.rm = TRUE)) %>%
+dat2_long %>%
+  group_by(migrant_gen, region_origin, trust_type) %>%
+  summarise(mean_trust = mean(trust_value, na.rm = TRUE)) %>%
   ggplot(aes(x = migrant_gen, y = mean_trust, fill = region_origin)) +
   geom_col(position = "dodge") +
+  facet_wrap(~ trust_type) +
   labs(title = "Trust in Institutions by Migration Generation and Region of Origin",
        x = "Migration Generation", y = "Mean Trust Index") +
   theme_minimal()
@@ -109,12 +210,13 @@ dat2 %>%
 ## Discrimination and Trust
 
 ```{r}
-dat2 %>%
-  group_by(migrant_gen, discrim) %>%
-  summarise(mean_trust = mean(trust_index, na.rm = TRUE)) %>%
+dat2_long %>%
+  group_by(migrant_gen, discrim, trust_type) %>%
+  summarise(mean_trust = mean(trust_value, na.rm = TRUE)) %>%
   ggplot(aes(x = factor(discrim, labels = c("No Discrimination", "Discriminated")),
              y = mean_trust, fill = migrant_gen)) +
   geom_col(position = "dodge") +
+  facet_wrap(~ trust_type) +
   labs(title = "Trust in Institutions by Migration Generation and Discrimination",
        x = "Discrimination Experience", y = "Mean Trust Index") +
   theme_minimal()
