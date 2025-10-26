@@ -1,0 +1,41 @@
+---
+title: "Versuch VDem"
+output: html_document
+date: "2025-10-22"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(readr)  
+```
+
+## Data VDem
+
+```{r}
+# Load ESS data
+dat_vdem <- read_csv("V-Dem-CY-Full+Others-v15.csv")
+rol_index <- dat_vdem$v2x_rule
+
+```
+
+## Looking at Rule Of law index
+
+```{r}
+summary(dat_vdem$v2x_rule) # median 0.46, mean 0.4945
+table(dat_vdem[, c("country_name", "year", "v2x_rule")])
+dat_vdem %>%
+  filter(country_name == "Switzerland") %>%
+  select(country_name, year, v2x_rule)
+```
+
+## New dataframe with only index and corresponding variables d.h. gemäss Codebook: Source(s): v2exrescon v2exbribe v2exembez v2excrptps v2exthftps v2juaccnt v2jucorrdc v2juhcind v2juncind v2juhccomp v2jucomp v2cltrnslw v2clrspct v2xcl_acjst
+
+```{r}
+relevant_vdem <- dat_vdem[, c("country_name", "year", "v2x_rule", "v2exrescon", "v2exbribe", "v2exembez", "v2excrptps", "v2exthftps", "v2juaccnt", "v2jucorrdc", "v2juhcind", "v2juncind", "v2juhccomp", "v2jucomp", "v2cltrnslw", "v2clrspct", "v2xcl_acjst")]
+
+write.csv(relevant_vdem, "relevant_vdem.csv", row.names = FALSE)
+
+
+
+```
