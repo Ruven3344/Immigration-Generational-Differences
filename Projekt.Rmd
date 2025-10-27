@@ -36,7 +36,7 @@ dat2 <- dat %>%
                                     "First generation")),
     # Binary discrimination variable
     discrim = if_else(dscrgrp == 1, 1, 0),
-    gender = if_else(gndr == 1, "Male", "Female"))
+    gender = if_else(gndr == 1, "Male", "Female")
   )
 ```
    
@@ -305,6 +305,7 @@ dat2_long %>%
   theme_minimal()
 
 ```
+
 
 
 
