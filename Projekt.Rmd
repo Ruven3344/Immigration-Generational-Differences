@@ -206,21 +206,34 @@ dat2 %>%
 
 # Rule of Law in countries with highest number of migrants :: kommt noch
 
+
 ```
 
-## H1
-
+## H1 Political
 ```{r}
 # Political trust
 h1_political <- lm(political_trust_index ~ migrant_gen + agea + eduyrs + hinctnta + gender,
                    data = dat2)
 summary(h1_political)
+```
+A linear regression model was estimated to examine how migration background, age, education, income, and gender are associated with political trust. The results show several significant relationships between these predictors and individuals’ political trust levels.
 
+Both migration generation variables are significant. First-generation migrants report higher political trust compared to natives, while second-generation migrants display slightly lower political trust levels. Among the control variables, age, education, income, and gender are all positively associated with political trust. This suggests that older individuals, those with more years of education, higher household income, and men tend to express somewhat greater confidence in political institutions.
+
+The model explains a modest share of the variance in political trust (adjusted R² = 0.041), but the highly significant F-statistic indicates that the included variables together contribute meaningfully to explaining differences in trust levels. Overall, these findings support the idea that both migration background and socioeconomic characteristics play an important role in shaping political trust.
+
+# H1 Non-political
+```{r}
 # Non-political trust
 h1_nonpolitical <- lm(non_political_trust_index ~ migrant_gen + agea + eduyrs + hinctnta + gender,
                       data = dat2)
 summary(h1_nonpolitical)
 ```
+A linear regression model was estimated to explore how migration background, age, education, income, and gender are associated with non-political trust. The results indicate several significant relationships between these predictors and respondents’ levels of trust in non-political institutions and people.
+
+First-generation migrants report significantly higher non-political trust compared to natives, while second-generation migrants show significantly lower trust. This pattern mirrors the political trust results, suggesting that the first generation may retain relatively higher social trust despite being foreign-born, whereas second-generation individuals appear somewhat less trusting. Age, education, and income all have small but positive effects on non-political trust, meaning that older, more educated, and higher-income respondents tend to express greater interpersonal trust. Additionally, men report slightly higher levels of non-political trust than women.
+
+Although the model explains a modest proportion of variance (adjusted R² = 0.034), the results confirm that both migration background and socioeconomic factors are systematically linked to levels of non-political trust.
 
 ## The trust gap between first- and second-generation immigrants varies systematically by region of origin, with the largest differences among immigrants from countries with weaker institutional performance.
 
@@ -237,7 +250,7 @@ summary(h1_nonpolitical)
 
 # Political trust
 h2_political <- lm(political_trust_index ~ migrant_gen * cntbrthc + agea + eduyrs + hinctnta, data = dat2)
-summary(h2_political)
+#summary(h2_political)
 ```
 
 ## H2 Non-political
