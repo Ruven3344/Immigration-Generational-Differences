@@ -4,6 +4,7 @@ output: html_document
 date: "2025-10-06"
 ---
 
+
 ```{r}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
@@ -15,6 +16,7 @@ library(readr)
 ```{r}
 # Load ESS data
 dat <- read_csv("ESS7e02_3.csv")
+r_vdem <- read_csv("relevant_vdem.csv")
 
 # Select and recode relevant variables
 dat2 <- dat %>%
@@ -37,7 +39,7 @@ dat2 <- dat %>%
     gender = if_else(gndr == 1, "Male", "Female")
   )
 ```
-
+   
 ```{r}
 # Recoding variables, getting rid of missing values and looking at outliers
 # fyi cntry has no missings hence it was not recoded
@@ -46,6 +48,7 @@ dat2 <- dat %>%
 dat2$cntbrthc[dat2$cntbrthc %in% c(66, 77, 88, 99)] <- NA 
 dat2$fbrncntb[dat2$fbrncntb %in% c(66, 77, 88, 99)] <- NA # gibt noch 65	Alien's passport
 dat2$mbrncntb[dat2$mbrncntb %in% c(66, 77, 88, 99)] <- NA # ebd.
+dat2$cntbrthc[dat2$cntbrthc %in% c(66, 77, 88, 99)] <- NA
 
 # Recode variables: 77 refusal, 88 don't know, 99 no answer
 dat2$trstlgl[dat2$trstlgl %in% c(77, 88, 99)] <- NA
@@ -66,12 +69,27 @@ dat2$agea[dat2$agea %in% c(999)] <- NA
 # Outlier for variable eduyrs, yrbrn and agea
 table(dat2$eduyrs)
 median(dat2$eduyrs, na.rm = TRUE) # 12
-mean(dat2$eduyrs, na.rm = TRUE) # 12.9 <- Es gibt hier 29 Fälle mit Angabe > 30 Jahre, 2 mal 50 Jahre. Letztere Rausnehmen?
+mean(dat2$eduyrs, na.rm = TRUE) # 12.9 
 mean(dat2$yrbrn, na.rm = TRUE) # 1965
-table(dat2$yrbrn, useNA = 'always') # <- Gibt 24 Fälle vor 1920 irgendwie sus, wie wollen wir damit umgehen?
+table(dat2$yrbrn, useNA = 'always') # <- Gibt 24 Fälle vor 1920 
 table(dat2$agea)
 median(dat2$agea, na.rm = TRUE) # 49
 mean(dat2$agea, na.rm = TRUE) # 49.28 
+
+# Recoding Country of birth
+dat2$cntbrthc2 <- dat2$cntbrthc
+class(dat2$cntbrthc2) #character
+class(dat2$cntbrthc2)
+dat2 <- dat2 %>% 
+  mutate(
+    cntbrthc2 = case_when(cntbrthc2 == "01" ~ "DDR",
+                          cntbrthc2 == "02" ~ "USSR",
+                          cntbrthc2 == "03" ~ "Czechoslovakia",
+                          cntbrthc2 == "04" ~ "Yugoslavia",
+                          cntbrthc2 == "05" ~ "East Timor",
+                          cntbrthc2 == "06" ~ "Serbia and Montenegro",
+                          cntbrthc2 == "65" ~ "Alien's passport",  # sans papier
+                            TRUE ~ as.character(cntbrthc2))) 
 
 # Check if recoding the variables worked
 table(dat2$fbrncntb, useNA = 'always')
@@ -87,9 +105,11 @@ table(dat2$yrbrn, useNA = 'always')
 table(dat2$dscrgrp, useNA = 'always')
 table(dat2$gndr, useNA = 'always')
 table(dat2$agea, useNA = 'always')
-```
+table(dat2$cntbrthc2, useNA = 'always')
 
-```{r}
+```
+ 
+```{r}   
 # Creating two trust indexes :: political institutional trust and non-political institutional trust
 
 # political institutional trust index (mean of trust items)
@@ -97,8 +117,6 @@ dat2 <- dat2 %>%
   mutate(political_trust_index = round(rowMeans(select(., "trstplt", "trstprl", "trstprt"), na.rm = TRUE)))
 dat2$political_trust_index[dat2$political_trust_index == "NaN"] <- NA
 table(dat2$political_trust_index, useNA = 'always')
-
-# evtl. noch spannend aus welchen Ländern?
 
 # non political institutional trust index (mean of trust items)
 dat2 <- dat2 %>%
@@ -110,11 +128,74 @@ table(dat2$non_political_trust_index, useNA = 'always')
 summary(dat2$political_trust_index) # median 4, mean 3.875, neutral, wenn überhaupt dann leicht rechtssteil/ linksschief
 summary(dat2$non_political_trust_index) # median 6, mean 5.796, ebd.
 
+# frame of reference V-Dem-Index Rule of Law v2x_rule
+table(r_vdem$v2x_rule)
+
+# DACH region
+dat2 <- dat2 %>% 
+  mutate(dach = ifelse(cntry %in% c("CH", "DE", "AT"),
+    cntry,
+    "other"
+  ))
+table(dat2$dach)
+
 ```
 
 ## Descriptive Statistic
 
 ```{r}
+# total number of migrants for DACH :: bei DE und other noch eine vierte Kategorie "NA"?
+dat2 %>% 
+  group_by(dach) %>% 
+  count(migrant_gen, na.rm = TRUE)
+
+# total number of migrants first & second gen for DACH
+dat2 %>% 
+  group_by(dach) %>% 
+  filter(migrant_gen %in% c("First generation", "Second generation")) %>% 
+  count(migrant_gen)
+
+# number first generation for DACH :: AT 211, CH 393, DE 299, other 3633
+dat2 %>% 
+  group_by(dach) %>% 
+  filter(migrant_gen %in% c("First generation")) %>% 
+  count(migrant_gen)
+
+# number second generation for DACH :: AT 163, CH 237, DE 268, other 3247
+dat2 %>% 
+  group_by(dach) %>% 
+  filter(migrant_gen %in% c("Second generation")) %>% 
+  count(migrant_gen)
+
+# distribution of countries of origin in DACH
+herkunft_dach <- dat2 %>% 
+  filter(dach %in% c("AT", "CH", "DE"), migrant_gen == "First generation", !is.na(cntbrthc2)) %>% 
+  count(cntbrthc2, sort = TRUE, name = "n") %>% 
+  mutate(pct = n / sum(n))
+herkunft_dach
+
+# distribution of countries of origin in AT :: BA: Bosnia and Herzegovina, RS: Serbia, PL: Poland, TR: Turkey, HR: Croatia
+herkunft_dach_at <- dat2 %>% 
+  filter(dach %in% c("AT"), migrant_gen == "First generation", !is.na(cntbrthc2)) %>% 
+  count(cntbrthc2, sort = TRUE, name = "n") %>% 
+  mutate(pct = n / sum(n))
+head(herkunft_dach_at)
+  
+# distribution of countries of origin in CH :: XK: Kosovo
+herkunft_dach_ch <- dat2 %>% 
+  filter(dach %in% c("CH"), migrant_gen == "First generation", !is.na(cntbrthc2)) %>% 
+  count(cntbrthc2, sort = TRUE, name = "n") %>% 
+  mutate(pct = n / sum(n))
+head(herkunft_dach_ch)
+
+# distribution of countries of origin in DE :: RU:Russian Federation, KZ: Kazakhstan, RO: Romania, CZ: Czechia
+herkunft_dach_de <- dat2 %>% 
+  filter(dach %in% c("DE"), migrant_gen == "First generation", !is.na(cntbrthc2)) %>% 
+  count(cntbrthc2, sort = TRUE, name = "n") %>% 
+  mutate(pct = n / sum(n))
+head(herkunft_dach_de)
+
+# average trust values pol. & non-pol. depending on migration generation 
 dat2 %>%
   group_by(migrant_gen) %>%
   summarise(
@@ -122,6 +203,9 @@ dat2 %>%
     mean_nonpolitical_trust = mean(non_political_trust_index, na.rm = TRUE),
     n = n()
   )
+
+# Rule of Law in countries with highest number of migrants :: kommt noch
+
 ```
 
 ## H1
@@ -200,10 +284,9 @@ The findings show that first-generation migrants report significantly higher non
 
 Overall, while the model explains only a small proportion of the variance in non-political trust (adjusted R² = 0.010), it indicates that discrimination plays an important role in shaping interpersonal and social trust, regardless of migration background.
 
+
 ## Visualization
-
 ## Trust by Migration Generation
-
 ```{r}
 dat2_long <- dat2 %>%
   pivot_longer(cols = c(political_trust_index, non_political_trust_index),
@@ -222,7 +305,6 @@ ggplot(dat2_long, aes(x = migrant_gen, y = trust_value, fill = trust_type)) +
 ```
 
 ## Trust Gap by Region of Origin
-
 ```{r}
 dat2_long %>%
   group_by(migrant_gen, region_origin, trust_type) %>%
@@ -251,3 +333,7 @@ dat2_long %>%
   theme_minimal()
 
 ```
+
+
+
+
