@@ -237,27 +237,42 @@ Although the model explains a modest proportion of variance (adjusted R² = 0.03
 
 ## The trust gap between first- and second-generation immigrants varies systematically by region of origin, with the largest differences among immigrants from countries with weaker institutional performance.
 
+## Adding democratic index
+```{r}
+#need to filter without country of birth? quite large number NAs
+country_lookup <- readr::read_csv("country_lookup.csv")
+country_lookup <- country_lookup %>% filter(cntbrthc_long != "Namibia")
+#join with long country
+dat2 <- dat2 %>%
+  left_join(country_lookup, by = "cntbrthc")
+#join with r_vdem
+colnames(r_vdem)[1] <- "cntbrthc_long"
+dat2 <- dat2 %>% 
+  left_join(r_vdem, by = "cntbrthc_long")
+
+dat_wrong_cntbrthc_long <- dat2 %>% 
+  filter(FALSE == is.na(cntbrthc_long) & TRUE == is.na(year))
+
+
+```
+
+
 ## H2 Political
 
 ```{r}
 
-#dat2 <- dat2 %>%
- # mutate(region_origin = case_when(
-  #  cntbrthc %in% c("TUR", "SYR", "IRQ") ~ "Non-EU (weak #institutions)",
-#    cntbrthc %in% c("ITA", "ESP", "POL") ~ "EU (mixed #institutions)",
-#    TRUE ~ "Other"
-#  ))
-
 # Political trust
 h2_political <- lm(political_trust_index ~ migrant_gen * cntbrthc + agea + eduyrs + hinctnta, data = dat2)
 #summary(h2_political)
+
+
 ```
 
 ## H2 Non-political
 
 ```{r}
 # Non-political trust
-h2_nonpolitical <- lm(non_political_trust_index ~ migrant_gen * rcntbrthc + agea + eduyrs + hinctnta,
+h2_nonpolitical <- lm(non_political_trust_index ~ migrant_gen * cntbrthc + agea + eduyrs + hinctnta,
                       data = dat2)
 summary(h2_nonpolitical)
 
