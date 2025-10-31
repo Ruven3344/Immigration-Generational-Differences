@@ -237,6 +237,7 @@ Although the model explains a modest proportion of variance (adjusted R² = 0.03
 
 ## The trust gap between first- and second-generation immigrants varies systematically by region of origin, with the largest differences among immigrants from countries with weaker institutional performance.
 
+
 ## Adding democratic index
 ```{r}
 #need to filter without country of birth? quite large number NAs
@@ -245,25 +246,68 @@ country_lookup <- country_lookup %>% filter(cntbrthc_long != "Namibia")
 #join with long country
 dat2 <- dat2 %>%
   left_join(country_lookup, by = "cntbrthc")
-#join with r_vdem
-colnames(r_vdem)[1] <- "cntbrthc_long"
-dat2 <- dat2 %>% 
-  left_join(r_vdem, by = "cntbrthc_long")
+# Standardize country names to match V-Dem dataset
+dat2 <- dat2 %>%
+  mutate(cntbrthc_long_standardized = case_when(
+    cntbrthc_long == "Russian Federation" ~ "Russia",
+    cntbrthc_long == "Syrian Arab Republic" ~ "Syria",
+    cntbrthc_long == "Viet Nam" ~ "Vietnam",
+    cntbrthc_long == "Iran, Islamic Republic of" ~ "Iran",
+    cntbrthc_long == "Korea, Republic of" ~ "South Korea",
+    cntbrthc_long == "Korea, Democratic People's Republic of" ~ "North Korea",
+    cntbrthc_long == "Tanzania, United Republic of" ~ "Tanzania",
+    cntbrthc_long == "Congo, Democratic Republic of the" ~ "Democratic Republic of the Congo",
+    cntbrthc_long == "Congo" ~ "Republic of the Congo",
+    cntbrthc_long == "Lao People's Democratic Republic" ~ "Laos",
+    cntbrthc_long == "Venezuela, Bolivarian Republic of" ~ "Venezuela",
+    cntbrthc_long == "Bolivia, Plurinational State of" ~ "Bolivia",
+    cntbrthc_long == "Macedonia, the former Yugoslav Republic of" ~ "North Macedonia",
+    cntbrthc_long == "Czechia" ~ "Czechia",
+    cntbrthc_long == "Czech Republic" ~ "Czechia",
+    TRUE ~ cntbrthc_long  # Keep original name if no match
+  ))
+# Filter r_vdem to only include the most recent year for each country
+colnames(r_vdem)[1] <- "country_name"
+r_vdem_recent <- r_vdem %>%
+  group_by(country_name) %>%
+  filter(year == max(year)) %>%
+  ungroup()
 
+#join with r_vdem using standardized country names and most recent data
+dat2 <- dat2 %>% 
+  left_join(r_vdem_recent, by = c("cntbrthc_long_standardized" = "country_name"))
+
+# Check which countries still don't match after standardization
 dat_wrong_cntbrthc_long <- dat2 %>% 
-  filter(FALSE == is.na(cntbrthc_long) & TRUE == is.na(year))
+  filter(!is.na(cntbrthc_long) & is.na(year)) %>%
+  select(cntbrthc_long, cntbrthc_long_standardized) %>%
+  distinct()
+
+# Display countries that still don't match (if any)
+if(nrow(dat_wrong_cntbrthc_long) > 0) {
+  print("Countries still not matching with V-Dem:")
+  print(dat_wrong_cntbrthc_long)
+}
 
 
 ```
+H2 Political Trust
 
+A linear regression model was estimated to examine whether the relationship between migration background and political trust varies depending on the rule of law in migrants' countries of origin. The model included an interaction term between migration generation and the V-Dem rule of law index, while controlling for age, education, and income.
+
+The results show that first-generation migrants do not differ significantly from natives in their political trust levels (β = 1.075, p = 0.645). The rule of law in the country of origin shows a marginally significant positive effect (β = 0.249, p = 0.068), suggesting that migrants from countries with stronger institutional quality tend to have slightly higher political trust. However, the interaction term between first-generation status and rule of law could not be estimated due to singularities in the model, which indicates multicollinearity issues—likely because the rule of law variable doesn't vary enough within the first-generation migrant group or overlaps too much with other predictors.
+
+Among the control variables, age has a significant negative effect on political trust, meaning older respondents tend to trust political institutions less. Education shows no significant relationship with political trust in this model, while income has a marginally significant positive effect (β = 0.031, p = 0.059), suggesting that higher earners express somewhat greater trust.
+
+Overall, the model explains very little of the variance in political trust (adjusted R² = 0.009), and the lack of a functioning interaction term makes it difficult to draw clear conclusions about whether the trust gap varies by country of origin's institutional quality. The findings are inconclusive regarding the hypothesis that migrants from countries with weaker rule of law show different trust patterns.
 
 ## H2 Political
 
 ```{r}
 
 # Political trust
-h2_political <- lm(political_trust_index ~ migrant_gen * cntbrthc + agea + eduyrs + hinctnta, data = dat2)
-#summary(h2_political)
+h2_political <- lm(political_trust_index ~ migrant_gen * v2x_rule + agea + eduyrs + hinctnta, data = dat2)
+summary(h2_political)
 
 
 ```
@@ -272,11 +316,25 @@ h2_political <- lm(political_trust_index ~ migrant_gen * cntbrthc + agea + eduyr
 
 ```{r}
 # Non-political trust
-h2_nonpolitical <- lm(non_political_trust_index ~ migrant_gen * cntbrthc + agea + eduyrs + hinctnta,
+h2_nonpolitical <- lm(non_political_trust_index ~ migrant_gen * v2x_rule + agea + eduyrs + hinctnta,
                       data = dat2)
 summary(h2_nonpolitical)
 
 ```
+
+
+H2 Non-Political Trust
+
+A similar regression model was estimated for non-political trust, examining how migration background and country of origin's rule of law relate to trust in non-political institutions and people, while controlling for age, education, and income.
+
+The results show that first-generation migrants do not differ significantly from natives in non-political trust (β = -2.213, p = 0.350). However, the rule of law in the country of origin has a significant positive effect (β = 0.408, p = 0.003), indicating that migrants from countries with stronger institutional quality tend to have higher non-political trust. As with the political trust model, the interaction term could not be estimated due to singularities, preventing us from testing whether the relationship between migration status and trust varies systematically by rule of law.
+
+Among the control variables, age is negatively associated with non-political trust, meaning younger respondents express higher trust. Education shows no significant effect, while income has a significant positive relationship (β = 0.045, p = 0.006)—higher earners report greater non-political trust.
+
+The model explains a small but slightly larger portion of variance compared to the political trust model (adjusted R² = 0.014). The findings suggest that the institutional quality of migrants' countries of origin does matter for non-political trust, but the model's technical limitations prevent a full test of the hypothesis that trust gaps vary by region of origin.
+
+
+
 
 ## H3: The negative association between experiences of discrimination and institutional trust differs across different immigrant groups.
 
