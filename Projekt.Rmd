@@ -155,6 +155,32 @@ dat2 %>%
   filter(migrant_gen %in% c("First generation", "Second generation")) %>% 
   count(migrant_gen)
 
+# total number of migrants & second gen for DACH überarbeitet
+dat2 %>% 
+  filter(
+    dach %in% c("AT","CH","DE"),  
+    !is.na(migrant_gen)          
+  ) %>% 
+  count(dach, migrant_gen)
+
+# total number of migrants for DACH plot
+plot_dach_mg <- dat2 %>% 
+  filter(
+    dach %in% c("AT","CH","DE"),  
+    !is.na(migrant_gen)          
+  ) %>% 
+  count(dach, migrant_gen) %>% 
+  ggplot(aes(x = dach, y = n, fill = migrant_gen)) +
+  geom_col(position = "dodge") +
+  labs(
+    x = "Country according to DACH regions",
+    y = "Absolute Numbers",
+    fill = "Migrant generation", caption = "Plot 1.1, based on ESS-Data") +
+  theme(plot.caption = element_text(hjust = -0.1, size = 5))
+plot_dach_mg
+
+ggsave(filename = "plot_dach_mg.pdf", plot=plot_dach_mg, height = 10, width = 20, units = "cm", dpi = 600)
+
 # number first generation for DACH :: AT 211, CH 393, DE 299, other 3633
 dat2 %>% 
   group_by(dach) %>% 
@@ -173,6 +199,22 @@ herkunft_dach <- dat2 %>%
   count(cntbrthc2, sort = TRUE, name = "n") %>% 
   mutate(pct = n / sum(n))
 herkunft_dach
+
+plot_herkunft_dach <- dat2 %>% 
+  filter(dach %in% c("AT", "CH", "DE"), !is.na(cntbrthc2)) %>% 
+  count(cntbrthc2, sort = TRUE, name = "n") %>% 
+  slice_head(n = 5) %>%
+  mutate(pct = n / sum(n)) %>% 
+  ggplot(aes(x = cntbrthc2, y = n, fill = cntbrthc2)) +
+  geom_col(position = "dodge", fill = "steelblue") +
+  labs(
+    x = "Country of origin",
+    y = "Percentage Numbers",
+    caption = "Plot 1.2, based on ESS-Data") +
+  theme(plot.caption = element_text(hjust = -0.1, size = 5))
+plot_herkunft_dach
+
+ggsave(filename = "plot_herkunft_dach.pdf", plot=plot_herkunft_dach, height = 10, width = 20, units = "cm", dpi = 600)
 
 # distribution of countries of origin in AT :: BA: Bosnia and Herzegovina, RS: Serbia, PL: Poland, TR: Turkey, HR: Croatia
 herkunft_dach_at <- dat2 %>% 
@@ -419,6 +461,7 @@ dat2_long %>%
   theme_minimal()
 
 ```
+
 
 
 
